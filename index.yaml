@@ -1,0 +1,23 @@
+apiVersion: v1
+entries:
+  hyperfleet-api:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-02-06T11:22:18.239676-06:00"
+    description: HyperFleet API - Cluster Lifecycle Management Service
+    digest: 37f4d700b40bfaa1b66c53bbb009492e94ee9f1bb952e066e53ce5dc211e2424
+    home: https://github.com/openshift-hyperfleet/hyperfleet-api
+    keywords:
+    - hyperfleet
+    - api
+    - kubernetes
+    - cluster-management
+    maintainers:
+    - email: hyperfleet-team@redhat.com
+      name: HyperFleet Team
+    name: hyperfleet-api
+    type: application
+    urls:
+    - https://cdoan1.github.io/regional-charts/hyperfleet-api-1.0.0.tgz
+    version: 1.0.0
+generated: "2026-02-06T11:22:18.238129-06:00"

@@ -33,4 +33,4 @@ jobs:
         echo "Hello ${{ inputs.name }}"
         git clone https://github.com/openshift-hyperfleet/hyperfleet-api.git
         ls -al
-        
+        make all-images        

@@ -13,7 +13,7 @@ DOCKER := docker
 REPOS := hyperfleet-api hyperfleet-adapter hyperfleet-sentinel
 REPO_BASE := https://github.com/openshift-hyperfleet
 
-IMAGE_USER ?= quay.io/cdoan0
+IMAGE_USER ?= quay.io/hyperfleet
 IMAGE_TAG ?= latest
 
 help:

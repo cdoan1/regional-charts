@@ -1,4 +1,4 @@
-.PHONY: help lint package index clean install uninstall test all-images clean-images
+.PHONY: help lint package index clean install uninstall test all-images push-images bundle-helm clean-images
 
 .DEFAULT_GOAL := help
 
@@ -13,6 +13,7 @@ DOCKER := docker
 REPOS := hyperfleet-api hyperfleet-adapter hyperfleet-sentinel
 REPO_BASE := https://github.com/openshift-hyperfleet
 
+IMAGE_USER ?= quay.io/cdoan0
 IMAGE_TAG ?= latest
 
 help:
@@ -25,6 +26,8 @@ help:
 	@echo "  uninstall    - Uninstall the chart from Kubernetes"
 	@echo "  test         - Run chart tests"
 	@echo "  all-images   - Clone and build images for all HyperFleet components"
+	@echo "  push-images  - Push all HyperFleet component images to registry"
+	@echo "  bundle-helm  - Package Helm charts from all HyperFleet repos and update index"
 	@echo "  clean        - Remove packaged charts"
 	@echo "  clean-images - Remove cloned repositories"
 
@@ -78,6 +81,59 @@ all-images:
 		echo ""; \
 	done
 	@echo "All images built successfully!"
+
+push-images:
+	@echo "Pushing all HyperFleet component images..."
+	@if [ ! -d "$(BUILD_DIR)" ]; then \
+		echo "Error: Build directory $(BUILD_DIR) does not exist. Run 'make all-images' first."; \
+		exit 1; \
+	fi
+	@for repo in $(REPOS); do \
+		echo "Pushing $$repo..."; \
+		if [ ! -d "$(BUILD_DIR)/$$repo" ]; then \
+			echo "  Error: Repository $$repo not found. Run 'make all-images' first."; \
+			exit 1; \
+		fi; \
+		echo "  Pushing image for $$repo using its Makefile (target: image-push)..."; \
+		cd $(BUILD_DIR)/$$repo && make image-push IMAGE_REGISTRY=$(IMAGE_USER) IMAGE_TAG=$(IMAGE_TAG) && cd ../..; \
+		echo "  ✓ $$repo image pushed successfully"; \
+		echo ""; \
+	done
+	@echo "All images pushed successfully!"
+
+bundle-helm:
+	@echo "Bundling Helm charts from all HyperFleet repositories..."
+	@mkdir -p $(BUILD_DIR)
+	@mkdir -p charts
+	@for repo in $(REPOS); do \
+		echo "Processing $$repo..."; \
+		if [ ! -d "$(BUILD_DIR)/$$repo" ]; then \
+			echo "  Cloning $$repo..."; \
+			git clone $(REPO_BASE)/$$repo.git $(BUILD_DIR)/$$repo; \
+		else \
+			echo "  Repository already exists, pulling latest..."; \
+			git -C $(BUILD_DIR)/$$repo pull; \
+		fi; \
+		echo "  Finding Helm chart in $$repo..."; \
+		CHART_PATH=$$(find $(BUILD_DIR)/$$repo -name "Chart.yaml" -type f | head -1); \
+		if [ -z "$$CHART_PATH" ]; then \
+			echo "  ⚠ No Chart.yaml found in $$repo, skipping..."; \
+			continue; \
+		fi; \
+		CHART_DIR=$$(dirname $$CHART_PATH); \
+		CHART_NAME=$$(grep '^name:' $$CHART_PATH | awk '{print $$2}'); \
+		echo "  Found chart '$$CHART_NAME' at $$CHART_DIR"; \
+		echo "  Syncing chart to ./charts/$$CHART_NAME..."; \
+		rm -rf ./charts/$$CHART_NAME; \
+		cp -r $$CHART_DIR ./charts/$$CHART_NAME; \
+		echo "  Packaging chart..."; \
+		helm package ./charts/$$CHART_NAME -d .; \
+		echo "  ✓ $$repo chart synced and packaged successfully"; \
+		echo ""; \
+	done
+	@echo "Updating Helm repository index..."
+	@helm repo index . --url https://cdoan1.github.io/regional-charts --merge index.yaml
+	@echo "✓ All Helm charts bundled and index updated!"
 
 clean-images:
 	@echo "Cleaning cloned repositories..."

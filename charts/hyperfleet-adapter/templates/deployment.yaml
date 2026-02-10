@@ -1,0 +1,177 @@
+{{- $brokerConfigValid := include "hyperfleet-adapter.helmValidateBrokerIsConfigured" . }}
+{{- $adapterConfigValid := include "hyperfleet-adapter.helmValidateAdapterIsConfigured" . }}
+{{- $adapterTaskConfigValid := include "hyperfleet-adapter.helmValidateAdapterTaskIsConfigured" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hyperfleet-adapter.fullname" . }}
+  labels:
+    {{- include "hyperfleet-adapter.labels" . | nindent 4 }}
+    {{- with .Values.deploymentLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.deploymentAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  {{- with .Values.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if .Values.minReadySeconds }}
+  minReadySeconds: {{ .Values.minReadySeconds }}
+  {{- end }}
+  {{- if .Values.revisionHistoryLimit }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "hyperfleet-adapter.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- if .Values.adapterConfig.create }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap-adapter.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if .Values.adapterTaskConfig.create }}
+        checksum/task-config: {{ include (print $.Template.BasePath "/configmap-adapter-task.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "hyperfleet-adapter.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "hyperfleet-adapter.serviceAccountName" . }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName }}
+      {{- end }}
+      {{- if .Values.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.containerPorts }}
+          ports:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          env:
+            {{- with .Values.env }}
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+            - name: LOG_LEVEL
+              value: {{ .Values.adapterConfig.log.level }}
+            - name: HYPERFLEET_API_BASE_URL
+              value: {{ .Values.adapterConfig.hyperfleetApi.baseUrl | quote }}
+            - name: HYPERFLEET_API_VERSION
+              value: {{ .Values.adapterConfig.hyperfleetApi.version | quote }}
+            - name: BROKER_CONFIG_FILE
+              value: /etc/broker/broker.yaml
+            {{- $brokerType := include "hyperfleet-adapter.brokerType" . }}
+            {{- if eq $brokerType "googlepubsub" }}
+            - name: HYPERFLEET_BROKER_SUBSCRIPTION_ID
+              value: {{ .Values.broker.googlepubsub.subscriptionId | quote }}
+            - name: HYPERFLEET_BROKER_TOPIC
+              value: {{ .Values.broker.googlepubsub.topic | quote }}
+            {{- end }}
+            {{- if eq $brokerType "rabbitmq" }}
+            - name: BROKER_URL
+              value: {{ .Values.broker.rabbitmq.url | quote }}
+            - name: BROKER_QUEUE
+              value: {{ .Values.broker.rabbitmq.queue | quote }}
+            {{- end }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            {{- include "hyperfleet-adapter.renderProbe" (dict "probe" .Values.livenessProbe "defaultPath" "/healthz" "defaultPort" "http") | nindent 12 }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            {{- include "hyperfleet-adapter.renderProbe" (dict "probe" .Values.readinessProbe "defaultPath" "/readyz" "defaultPort" "http") | nindent 12 }}
+          {{- end }}
+          {{- if .Values.startupProbe.enabled }}
+          startupProbe:
+            {{- include "hyperfleet-adapter.renderProbe" (dict "probe" .Values.startupProbe "defaultPath" "/healthz" "defaultPort" "http") | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.lifecycle }}
+          lifecycle:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: adapter-config
+              mountPath: /etc/adapter
+              readOnly: true
+            - name: broker-config
+              mountPath: /etc/broker/broker.yaml
+              subPath: broker.yaml
+              readOnly: true
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- with .Values.sidecarContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      volumes:
+        - name: adapter-config
+          projected:
+            sources:
+              - configMap:
+                  name: {{ include "hyperfleet-adapter.adapterConfigMapName" . }}
+                  items:
+                    - key: adapter-config.yaml
+                      path: adapter-config.yaml
+              - configMap:
+                  name: {{ include "hyperfleet-adapter.adapterTaskConfigMapName" . }}
+              - configMap:
+                  name: {{ include "hyperfleet-adapter.brokerConfigMapName" . }}
+        - name: broker-config
+          configMap:
+            name: {{ include "hyperfleet-adapter.brokerConfigMapName" . }}
+            items:
+              - key: broker.yaml
+                path: broker.yaml
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sentinel.fullname" . }}-config
+  labels:
+    {{- include "sentinel.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    # Sentinel configuration
+    resource_type: {{ .Values.config.resourceType }}
+    poll_interval: {{ .Values.config.pollInterval }}
+    max_age_not_ready: {{ .Values.config.maxAgeNotReady }}
+    max_age_ready: {{ .Values.config.maxAgeReady }}
+
+    {{- if .Values.config.resourceSelector }}
+    # Resource selector for horizontal sharding
+    resource_selector:
+      {{- range .Values.config.resourceSelector }}
+      - label: {{ .label }}
+        value: {{ .value | quote }}
+      {{- end }}
+    {{- end }}
+
+    # HyperFleet API configuration
+    hyperfleet_api:
+      endpoint: {{ .Values.config.hyperfleetApi.baseUrl }}
+      timeout: {{ .Values.config.hyperfleetApi.timeout }}
+
+    {{- if .Values.config.messageData }}
+    # CloudEvents data payload configuration
+    message_data:
+      {{- range $key, $value := .Values.config.messageData }}
+      {{ $key }}: {{ $value }}
+      {{- end }}
+    {{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sentinel.fullname" . }}-broker-config
+  labels:
+    {{- include "sentinel.labels" . | nindent 4 }}
+data:
+  broker.yaml: |
+    # Broker configuration for hyperfleet-broker library
+    broker:
+      type: {{ .Values.broker.type }}
+      {{- if eq .Values.broker.type "rabbitmq" }}
+      rabbitmq:
+        # URL will be provided via BROKER_RABBITMQ_URL env var from Secret
+        # This is just the exchange type configuration
+        exchange_type: {{ .Values.broker.rabbitmq.exchangeType | default "topic" }}
+        {{- if .Values.broker.rabbitmq.prefetchCount }}
+        prefetch_count: {{ .Values.broker.rabbitmq.prefetchCount }}
+        {{- end }}
+        {{- if .Values.broker.rabbitmq.prefetchSize }}
+        prefetch_size: {{ .Values.broker.rabbitmq.prefetchSize }}
+        {{- end }}
+      {{- else if eq .Values.broker.type "googlepubsub" }}
+      googlepubsub:
+        project_id: {{ .Values.broker.googlepubsub.projectId | quote }}
+        {{- if .Values.broker.googlepubsub.maxOutstandingMessages }}
+        max_outstanding_messages: {{ .Values.broker.googlepubsub.maxOutstandingMessages }}
+        {{- end }}
+        {{- if .Values.broker.googlepubsub.numGoroutines }}
+        num_goroutines: {{ .Values.broker.googlepubsub.numGoroutines }}
+        {{- end }}
+        {{- if hasKey .Values.broker.googlepubsub "createTopicIfMissing" }}
+        create_topic_if_missing: {{ .Values.broker.googlepubsub.createTopicIfMissing }}
+        {{- end }}
+      {{- end }}
+
+    {{- if .Values.subscriber }}
+    subscriber:
+      parallelism: {{ .Values.subscriber.parallelism | default 1 }}
+    {{- end }}
+
+    # Set to true for debugging broker configuration
+    log_config: false

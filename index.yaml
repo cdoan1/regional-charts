@@ -1,11 +1,32 @@
 apiVersion: v1
 entries:
+  hyperfleet-adapter:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-02-10T17:18:32.103933-06:00"
+    description: HyperFleet Adapter - Event-driven adapter services for HyperFleet
+      cluster provisioning
+    digest: 787e8df41ef99526271f8435ba0ae3179a14da8073a9b4faae326da1d5d56ca7
+    home: https://github.com/openshift-hyperfleet/hyperfleet-adapter
+    keywords:
+    - hyperfleet
+    - adapter
+    - cloudevents
+    - kubernetes
+    maintainers:
+    - email: hyperfleet-team@redhat.com
+      name: HyperFleet Team
+    name: hyperfleet-adapter
+    type: application
+    urls:
+    - https://cdoan1.github.io/regional-charts/hyperfleet-adapter-1.0.0.tgz
+    version: 1.0.0
   hyperfleet-api:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-02-06T11:22:18.239676-06:00"
+    created: "2026-02-10T17:18:32.104594-06:00"
     description: HyperFleet API - Cluster Lifecycle Management Service
-    digest: 37f4d700b40bfaa1b66c53bbb009492e94ee9f1bb952e066e53ce5dc211e2424
+    digest: 75869f3cd3ea58c2f196486608e15273d545e457e5e1ca58c2beca8baf6b19f7
     home: https://github.com/openshift-hyperfleet/hyperfleet-api
     keywords:
     - hyperfleet
@@ -20,4 +41,26 @@ entries:
     urls:
     - https://cdoan1.github.io/regional-charts/hyperfleet-api-1.0.0.tgz
     version: 1.0.0
-generated: "2026-02-06T11:22:18.238129-06:00"
+  sentinel:
+  - apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-02-10T17:18:32.104949-06:00"
+    description: HyperFleet Sentinel - Kubernetes service that polls HyperFleet API
+      and publishes CloudEvents
+    digest: 4f5291c45e17352d2bb899a1ab9b872847f2e12d7176a2b1dc68ef0ee3c4f811
+    home: https://github.com/openshift-hyperfleet/hyperfleet-sentinel
+    keywords:
+    - hyperfleet
+    - sentinel
+    - events
+    - polling
+    maintainers:
+    - name: HyperFleet Team
+    name: sentinel
+    sources:
+    - https://github.com/openshift-hyperfleet/hyperfleet-sentinel
+    type: application
+    urls:
+    - https://cdoan1.github.io/regional-charts/sentinel-0.1.0.tgz
+    version: 0.1.0
+generated: "2026-02-10T17:18:32.103006-06:00"
